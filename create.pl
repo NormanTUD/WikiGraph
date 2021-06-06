@@ -13,6 +13,7 @@ use Memoize;
 memoize "get_article_id";
 memoize "get_category_id";
 
+
 sub debug (@);
 sub dbhdo (@);
 
@@ -33,12 +34,12 @@ my %options = (
 	start => undef,
 	max_depth => 1,
 	max_article => 0,
-	dotfile => undef
+	run => 0
 );
-
 
 analyze_args(@ARGV);
 create_db_structure();
+my $sth_insert_article = $dbh->prepare("insert or ignore into article(url, name) values(?,?)");
 
 sub debug (@) {
 	if($options{debug}) {
@@ -94,7 +95,7 @@ sub get_links {
 	while ($page =~ m#<a href="/wiki/([^"]*)" title="([^"]*)">.*?</a>#gism) {
 		my $link = $1;
 		my $name = $2;
-		if($link !~ m#^(Talk|Category|Wikipedia|Template|Special|Help|Portal):# && $name !~ /^(Template talk):/) {
+		if($link !~ m#^(Talk|Category|Wikipedia|Template|Special|Help|Portal|File):# && $name !~ /^(Template talk):/) {
 			push @links, { link => "https://en.wikipedia.org/wiki/$link", name => $name };
 		}
 	}
@@ -102,12 +103,8 @@ sub get_links {
 }
 
 sub create_dot_file {
-	my $filename = $options{dotfile};
-	if(!defined $filename) { 
-		die "No --dotfile=FILENAME specified";
-	}
+	my $filename = $options{start}.".dot";
 	if(-e $filename) {
-		warn "Filename $filename already exists";
 		unlink $filename;
 	}
 
@@ -135,10 +132,11 @@ sub create_dot_file {
 	}
 	print $fh "}\n";
 
-	my $code = "circo -Tsvg $filename > $filename.svg && firefox $filename.svg";
-	debug $code;
-	system($code);
-
+	if($options{run}) {
+		my $code = "circo -Tsvg $filename > $filename.svg && gwenview $filename.svg";
+		debug $code;
+		system($code);
+	}
 }
 
 sub main {
@@ -151,18 +149,21 @@ sub main {
 
 sub get_category_id {
 	my $url = shift;
-	return $dbh->selectrow_array("select id from category where url = ?", undef, $url);
+	my $r = $dbh->selectrow_array("select id from category where url = ?", undef, $url);
+	debug "get_category_id($url) = $r";
+	return $r;
 }
 
 sub get_article_id {
 	my $url = shift;
-	return $dbh->selectrow_array("select id from article where url = ?", undef, $url);
+	my $r = $dbh->selectrow_array("select id from article where url = ?", undef, $url);
+	debug "get_article_id($url) = $r";
+	return $r;
 }
 
 sub save_article {
 	my ($url, $name) = @_;
-	my $sth = $dbh->prepare("insert or ignore into article(url, name) values(?,?)");
-	$sth->execute($url, $name);
+	$sth_insert_article->execute($url, $name);
 }
 
 sub set_article_studied {
@@ -172,7 +173,10 @@ sub set_article_studied {
 }
 
 sub save_data {
-	my ($url, $name, $categories, $links) = @_;
+	my ($url, $name, $links) = @_;
+	debug "!!!!!!!!!!!!!!!!!!!!!!!save_data($url, $name)";
+
+	my @categories = get_categories($url);
 
 	save_article($url, $name);
 
@@ -180,7 +184,7 @@ sub save_data {
 
 	set_article_studied($article_id);
 
-	foreach my $cat (@$categories) {
+	foreach my $cat (@categories) {
 		my ($c_url, $c_name) = ($cat->{link}, $cat->{name});
 		my $sth = $dbh->prepare("insert or ignore into category(url, name) values(?,?)");
 		$sth->execute($c_url, $c_name);
@@ -188,6 +192,7 @@ sub save_data {
 
 		my $sth2 = $dbh->prepare("insert or ignore into article_to_category(article_id, category_id) values(?,?)");
 		$sth2->execute($article_id, $category_id);
+		debug "Saved article '$name' <-> category '$c_name' connection";
 	}
 
 	foreach my $link (@$links) {
@@ -219,18 +224,19 @@ sub study_site {
 	}
 
 	if($depth > $options{max_depth}) {
-		die "Max depth reached";
+		warn "Max depth reached\n";
+		return;
 	}
 
 	my @links = get_links($url);
-	my @categories = get_categories($url);
 
-	save_data($url, $name, \@categories, \@links);
+	save_data($url, $name, \@links);
 
 	foreach (@links) {
 		my $this_url = $_->{link};
-		return if($options{max_article} && $studied_articles >= $options{max_article});
-		study_site($this_url, ++$depth);
+		my $this_name = $_->{name};
+		return if($options{max_article} && $studied_articles > $options{max_article});
+		study_site($this_url, $this_name, ++$depth);
 	}
 }
 
@@ -242,8 +248,8 @@ sub analyze_args {
 			$options{max_article} = $1;
 		} elsif(m#^--max_depth=(\d*)$#) {
 			$options{max_depth} = $1;
-		} elsif(m#^--dotfile=(.*)$#) {
-			$options{dotfile} = $1;
+		} elsif(m#^--run$#) {
+			$options{run} = 1;
 		} elsif(m#^--start=(.*)$#) {
 			$options{start} = $1;
 		} else {
