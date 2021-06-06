@@ -122,10 +122,15 @@ sub create_dot_file {
 	print $fh "\tgraph [overlap=false outputorder=edgesfirst];\n";
 	print $fh "\tnode [style=filled fillcolor=white];\n";
 
+	my %already_done = ();
+
 	while(my @row = $sth->fetchrow_array()) {
 		my ($from, $to) = @row;
-		if($from ne $to) {
-			print $fh qq#\t"$from" -> "$to";\n#;
+		if(!defined($already_done{$from}) && !defined($already_done{$from}{$to})) {
+			if($from ne $to) {
+				print $fh qq#\t"$from" -> "$to";\n#;
+			}
+			$already_done{$from}{$to} = 1;
 		}
 	}
 	print $fh "}\n";
