@@ -120,6 +120,7 @@ sub create_dot_file {
 	open my $fh, '>>', $filename;
 	print $fh "digraph a {\n";
 	print $fh "\tgraph [overlap=false outputorder=edgesfirst];\n";
+	print $fh "\tnode [style=filled fillcolor=white];\n";
 
 	while(my @row = $sth->fetchrow_array()) {
 		my ($from, $to) = @row;
