@@ -112,13 +112,14 @@ sub create_dot_file {
 	}
 
 	debug "Starting .dot-file query";
-	my $query = "select cat_a.name, cat_b.name from article_to_article art_art join article art_a on art_a.id = art_art.article_from join article art_b on art_b.id = art_art.article_to join article_to_category art_cat_a on art_cat_a.article_id = art_art.article_from join article_to_category art_cat_b on art_cat_b.article_id = art_art.article_from join category cat_a on cat_a.id = art_cat_a.category_id join category cat_b on cat_b.id = art_cat_b.category_id limit 10;";
+	my $query = "select cat_a.name, cat_b.name from article_to_article art_art join article art_a on art_a.id = art_art.article_from join article art_b on art_b.id = art_art.article_to join article_to_category art_cat_a on art_cat_a.article_id = art_art.article_from join article_to_category art_cat_b on art_cat_b.article_id = art_art.article_from join category cat_a on cat_a.id = art_cat_a.category_id join category cat_b on cat_b.id = art_cat_b.category_id;";
 
 	my $sth = $dbh->prepare($query);
 	$sth->execute();
 
 	open my $fh, '>>', $filename;
 	print $fh "digraph a {\n";
+	print $fh "\tgraph [overlap=false outputorder=edgesfirst];\n"
 	while(my @row = $sth->fetchrow_array()) {
 		my ($from, $to) = @row;
 		if($from ne $to) {
@@ -126,7 +127,7 @@ sub create_dot_file {
 		}
 	}
 	print $fh "}\n";
-	print "dot -Tsvg $filename > $filename.svg && firefox $filename.svg\n";
+	print "circo -Tsvg $filename > $filename.svg && firefox $filename.svg\n";
 
 }
 
