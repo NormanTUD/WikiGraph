@@ -119,7 +119,8 @@ sub create_dot_file {
 
 	open my $fh, '>>', $filename;
 	print $fh "digraph a {\n";
-	print $fh "\tgraph [overlap=false outputorder=edgesfirst];\n"
+	print $fh "\tgraph [overlap=false outputorder=edgesfirst];\n";
+
 	while(my @row = $sth->fetchrow_array()) {
 		my ($from, $to) = @row;
 		if($from ne $to) {
@@ -127,7 +128,10 @@ sub create_dot_file {
 		}
 	}
 	print $fh "}\n";
-	print "circo -Tsvg $filename > $filename.svg && firefox $filename.svg\n";
+
+	my $code = "circo -Tsvg $filename > $filename.svg && firefox $filename.svg";
+	debug $code;
+	system($code);
 
 }
 
