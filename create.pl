@@ -82,7 +82,8 @@ sub get_categories {
 		}
 		return @categories;
 	} else {
-		die "No page under $url";
+		warn "No categories under $url";
+		return +();
 	}
 }
 
