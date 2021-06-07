@@ -175,7 +175,7 @@ sub set_article_studied {
 
 sub save_data {
 	my ($url, $name, $links) = @_;
-	debug "!!!!!!!!!!!!!!!!!!!!!!!save_data($url, $name)";
+	debug "save_data($url, $name)";
 
 	my @categories = get_categories($url);
 
